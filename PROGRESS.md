@@ -178,6 +178,14 @@ Live tracker for build progress. Source of truth for rules and architecture:
       rollback, backups, troubleshooting table, security checklist
 - [x] `Makefile`: full no-Docker workflow (`env`, `db-create`, `migrate`, `dev`, `build`, `start`,
       `verify`, `clean`) reading `.env`
+- [x] `docs/deployment-pm2.md`: host deployment — PM2 (cluster) + system nginx (SPA, `/api/` proxy,
+      TLS, cache headers, SPA fallback) + external Postgres; firewall the API port, `pm2 startup`
+      and `save`, `pm2-logrotate`, zero-downtime `pm2 reload`, cluster-mode caveats
+- [x] `ecosystem.config.cjs`: runs `apps/api/dist/index.js`, 2 cluster workers, `NODE_ENV=production`
+- [x] Fixed `make build` emitting a **development** React bundle: `-include .env` set
+      `NODE_ENV=development`, and because the variable came from the environment make kept it
+      exported, so Vite built the dev bundle (634 kB vs 355 kB). `unexport NODE_ENV` + verified
+      against the Docker build output
 - [ ] Verify on a real host with a real domain and certificate
 
 ## Resolved decisions
@@ -229,6 +237,10 @@ Live tracker for build progress. Source of truth for rules and architecture:
   `node` user. `VITE_API_BASE_URL` is a build arg, defaulting to `/api/v1` for the proxied setup.
 - **Native run**: root `Makefile` drives the same stack without Docker (`make dev` for the dev
   servers, `make build && make start` for the compiled output).
+- **PM2 deploy**: PM2 owns the API (`ecosystem.config.cjs`, cluster mode, 2 workers) and system nginx
+  serves the SPA and proxies `/api/` on one origin, same as the container setup. Cluster mode means
+  rate-limit counters are per worker (effective limit = configured × workers) and each worker opens
+  its own pg pool — documented rather than hidden.
 
 ## Open questions (need owner input before the relevant phase)
 
@@ -237,6 +249,12 @@ Live tracker for build progress. Source of truth for rules and architecture:
 
 ## Changelog
 
+- PM2 deploy: `ecosystem.config.cjs` (cluster mode, 2 workers, `NODE_ENV=production`) plus
+  `docs/deployment-pm2.md` — host deployment with system nginx serving the SPA and proxying `/api/`
+  on one origin, TLS via certbot, a required firewall rule for the API port, `pm2 startup`/`save`,
+  `pm2-logrotate`, zero-downtime `pm2 reload` (verified: 60/60 clean responses during a reload) and
+  the cluster-mode caveats (per-worker rate limits and pg pools). Also fixed `make build` silently
+  producing a development React bundle through `.env`'s `NODE_ENV`.
 - Production deploy: `docker-compose.yml` is now an app-only stack (the Postgres image is gone; the
   database is external via `DATABASE_URL`), with `apps/api/Dockerfile` (pnpm monorepo build, tsup
   bundle, prod-only install, migrations included, non-root) and `apps/web/Dockerfile` (Vite build →

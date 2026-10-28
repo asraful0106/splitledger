@@ -15,6 +15,12 @@ export default tseslint.config(
   {
     files: ["**/*.{js,mjs,cjs,ts,tsx}"],
   },
+  {
+    files: ["**/*.cjs"],
+    languageOptions: {
+      globals: { __dirname: "readonly", module: "writable" },
+    },
+  },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {

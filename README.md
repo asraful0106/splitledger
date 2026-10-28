@@ -66,9 +66,15 @@ Always run `make verify` before declaring a task done.
 
 ## Deployment
 
-Production runs as two containers — nginx serving the built web app and proxying `/api/` to the API —
-against an external Postgres. See [docs/deployment.md](./docs/deployment.md) for the full
-step-by-step guide, or read the short version in [`docker-compose.yml`](./docker-compose.yml):
+Two supported paths. Both run against an **external Postgres**, and on both the built web app is
+served by nginx that also proxies `/api/` — so the app and the API share one origin and the refresh
+cookie stays first-party.
+
+- **Docker** — [docs/deployment.md](./docs/deployment.md). Two images; nginx runs in a container.
+- **PM2 on a host** — [docs/deployment-pm2.md](./docs/deployment-pm2.md). PM2 runs the API in
+  cluster mode via [`ecosystem.config.cjs`](./ecosystem.config.cjs); system nginx serves the web app.
+
+Docker, short version:
 
 ```bash
 cp .env.production.example .env.production   # then fill in real values
@@ -78,7 +84,16 @@ docker compose run --rm api \
 docker compose up -d
 ```
 
-Production requires HTTPS: the refresh cookie is `Secure`, so plain HTTP silently drops the session.
+PM2, short version (see the doc for the nginx, TLS and firewall steps):
+
+```bash
+pnpm install --frozen-lockfile && pnpm build
+pnpm --filter api migrate up
+pm2 start ecosystem.config.cjs && pm2 save
+```
+
+Production requires HTTPS on either path: the refresh cookie is `Secure`, so plain HTTP silently
+drops the session.
 
 ## Progress
 

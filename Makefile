@@ -2,7 +2,10 @@ SHELL := /bin/sh
 .DEFAULT_GOAL := help
 
 -include .env
-export
+
+# Never let .env's development value reach a child process: Vite would emit a
+# development React bundle (~2x the size) instead of the production one.
+unexport NODE_ENV
 
 API_PORT ?= 4000
 WEB_PORT ?= 4173
