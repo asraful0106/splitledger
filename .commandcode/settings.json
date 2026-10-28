@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Shell(node -v)",
+      "Shell(pnpm:*)",
+      "Shell(docker:*)",
+      "Shell(git:*)",
+      "Shell(corepack:*)",
+      "Shell(head -20 apps/api/dist/index.js; echo '---SETUP---'; head -5 apps/api/dist/index.js.map >/dev/null; ls -la apps/api/dist)",
+      "Shell(node -e import('shared').then(()=>console.log('resolved ok')).catch(e=>console.log('FAIL:', e.code, e.message.split('\\n')[0])) 2 >& 1)",
+      "Shell(npx tsup src/index.ts --format esm --target node20 --clean --sourcemap --no-external shared 2 >& 1)"
+    ],
+    "deny": [],
+    "defaultMode": "default"
+  }
+}
