@@ -188,6 +188,21 @@ Live tracker for build progress. Source of truth for rules and architecture:
       against the Docker build output
 - [ ] Verify on a real host with a real domain and certificate
 
+## Subpath hosting checklist (`/ap/splitledger/`)
+
+- [x] `VITE_BASE_PATH` (default `/`) feeds Vite's `base`, the PWA `start_url`/`scope`/icons and the
+      Workbox `navigateFallback`; `main.tsx` passes `import.meta.env.BASE_URL` as the router basename
+- [x] `apps/web/Dockerfile` takes `VITE_BASE_PATH` as a build arg
+- [x] `docker-compose.local.yml`: both images published (`8080`, `4001` — `4000`/`5173` belong to
+      `pnpm dev`), API reached over `host.docker.internal`, config bind-mounted as a **directory**
+- [x] `deploy/local/nginx/default.conf`: serves the app under the prefix, SPA fallback via a named
+      location, `/api/` proxied on its own path so the refresh cookie's path matches
+- [x] `.env.local.example` (git-ignored, exception added)
+- [x] `docs/deployment-local.md`, including the machine's own nginx server block
+- [x] Verified end to end: shell, deep links, hashed assets, `sw.js`, manifest, icons, and register →
+      login → refresh → `me` through the subpath
+- [ ] Verify through the real domain (needs the machine's nginx + a certificate)
+
 ## Resolved decisions
 
 - **Styling**: Tailwind CSS v4 (was open in CLAUDE.md §13).
@@ -241,6 +256,12 @@ Live tracker for build progress. Source of truth for rules and architecture:
   serves the SPA and proxies `/api/` on one origin, same as the container setup. Cluster mode means
   rate-limit counters are per worker (effective limit = configured × workers) and each worker opens
   its own pg pool — documented rather than hidden.
+- **Subpath hosting**: the build knows its base (`VITE_BASE_PATH`, default `/`) instead of nginx
+  rewriting URLs — `sub_filter` cannot reach the bundle's own absolute chunk URLs, the router or the
+  PWA scope. The API is never moved under the subpath: the refresh cookie's `Path=/api/v1/auth` must
+  match the browser's request path, so the app can live anywhere but the API stays at `/api/v1/...`.
+  `/api/` is proxied straight to the API rather than through the web container, which would add an
+  `X-Forwarded-For` hop and collapse per-IP rate limiting into one bucket.
 
 ## Open questions (need owner input before the relevant phase)
 
@@ -249,6 +270,13 @@ Live tracker for build progress. Source of truth for rules and architecture:
 
 ## Changelog
 
+- Subpath hosting: the web build now takes its base from `VITE_BASE_PATH` (Vite `base`, PWA
+  `start_url`/`scope`/icons, Workbox `navigateFallback`, router basename via
+  `import.meta.env.BASE_URL`), and the web image accepts it as a build arg. Added
+  `docker-compose.local.yml`, `.env.local.example` and `deploy/local/nginx/default.conf` for running
+  the built app on a local machine at `/ap/splitledger/` beside another site, plus
+  `docs/deployment-local.md`. Verified end to end over the subpath: shell, deep links, hashed assets,
+  service worker, manifest, icons and the full register → login → refresh → `me` flow.
 - PM2 deploy: `ecosystem.config.cjs` (cluster mode, 2 workers, `NODE_ENV=production`) plus
   `docs/deployment-pm2.md` — host deployment with system nginx serving the SPA and proxying `/api/`
   on one origin, TLS via certbot, a required firewall rule for the API port, `pm2 startup`/`save`,

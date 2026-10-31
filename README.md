@@ -73,6 +73,19 @@ cookie stays first-party.
 - **Docker** — [docs/deployment.md](./docs/deployment.md). Two images; nginx runs in a container.
 - **PM2 on a host** — [docs/deployment-pm2.md](./docs/deployment-pm2.md). PM2 runs the API in
   cluster mode via [`ecosystem.config.cjs`](./ecosystem.config.cjs); system nginx serves the web app.
+- **Local machine, under a subpath** — [docs/deployment-local.md](./docs/deployment-local.md). The
+  same two images published on ports `8080`/`4001`, fronted by an nginx you already run, serving
+  `/ap/splitledger/` next to another site.
+
+Hosting under a subpath needs a build that knows its base:
+
+```bash
+VITE_BASE_PATH=/ap/splitledger/ pnpm --filter web build   # default is /
+```
+
+That value also drives the router basename, the PWA `start_url`/`scope` and the service worker
+fallback. The API is deliberately **not** moved under the subpath — the refresh cookie's
+`Path=/api/v1/auth` has to match the browser's requests.
 
 Docker, short version:
 

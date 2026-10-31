@@ -1,0 +1,76 @@
+# Local stack: the API and the web app, published on host ports so the machine's
+# own nginx can front them at https://asraful-alom.com/ap/splitledger/.
+#
+#   cp .env.local.example .env.local     # then edit
+#   docker compose -f docker-compose.local.yml build
+#   docker compose -f docker-compose.local.yml run --rm api \
+#     node node_modules/node-pg-migrate/bin/node-pg-migrate.js -m migrations -j sql up
+#   docker compose -f docker-compose.local.yml up -d
+#
+# See docs/deployment-local.md.
+
+name: splitledger-local
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    image: splitledger-api:local
+    restart: unless-stopped
+    env_file:
+      - .env.local
+    environment:
+      PORT: 4000
+    ports:
+      # 4000 is usually taken by the `pnpm dev` API, so the container is published one
+      # port up. Only the machine's nginx needs this — narrow it to
+      # "127.0.0.1:4001:4000" if nothing else on the LAN should reach the API.
+      - "4001:4000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:4000/api/v1/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        VITE_BASE_PATH: /ap/splitledger/
+        VITE_API_BASE_URL: /api/v1
+    image: splitledger-web:local
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "8080:80"
+    volumes:
+      # A directory, not a single file: editing a bind-mounted file replaces its
+      # inode and the container keeps reading the old one until it is recreated.
+      - ./deploy/local/nginx:/etc/nginx/conf.d:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

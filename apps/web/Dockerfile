@@ -16,7 +16,9 @@ RUN pnpm install --frozen-lockfile
 
 FROM deps AS build
 ARG VITE_API_BASE_URL=/api/v1
+ARG VITE_BASE_PATH=/
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+ENV VITE_BASE_PATH=$VITE_BASE_PATH
 COPY tsconfig.base.json ./
 COPY packages/shared ./packages/shared
 COPY apps/web ./apps/web
